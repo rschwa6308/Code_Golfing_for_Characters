@@ -1,0 +1,150 @@
+\documentclass{article}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+
+
+\usepackage[margin=1.0in]{geometry}		% smaller margins
+
+\usepackage{gensymb, amssymb, amsmath}
+\usepackage{graphicx, mathtools}
+\usepackage[shortlabels]{enumitem}
+
+\usepackage{hyperref}
+
+\usepackage{tcolorbox}
+\usepackage{multicol}
+
+% Use displaystyle within enumerate environments
+\usepackage{etoolbox} 
+\AtBeginEnvironment{enumerate}{\everymath{\displaystyle}}
+
+% No indent at start of new paragraphs
+\setlength{\parindent}{0cm}
+
+% Blackboard style shortcuts for common sets
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+
+% Transpose character
+\newcommand{\T}{\mathsf{T}}
+
+% Matrix shorthands
+\newcommand\bmat[1]{\begin{bmatrix}#1\end{bmatrix}}
+\newcommand\pmat[1]{\begin{pmatrix}#1\end{pmatrix}}
+
+% Code Listings
+\usepackage{xcolor}
+\definecolor{lightergray}{rgb}{0.9, 0.9, 0.9}
+
+\usepackage{minted}
+% \usemintedstyle{vs}
+\setminted[python]{
+    autogobble,
+    bgcolor=lightergray,
+    fontsize=\small
+}
+
+\usepackage{titling}
+\setlength{\droptitle}{-6em}
+
+
+\newcommand{\smallvert}{\rule{.4pt}{1.6ex}}
+\newcommand{\smallvee}{\raisebox{1pt}{\scalebox{0.75}{$\diagdown$}\hspace{8pt}\scalebox{0.75}{$\diagup$}}}
+
+\title{Code Golfing for Characters (not Bytes)}
+\author{Russell Schwartz}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+    Code golf challenges are usually judged by measuring the length of the source code in bytes. However, certain venues instead count the number of characters. If a variable-length character encoding like UTF-8 is used, and non-ASCII-range characters are allowed, it becomes possible to pack more information into the same number of characters by using high-value code points. We propose a general method for Python code golf that involves compressing source code into a dense string of unicode characters which, when packaged along with a decoder, is (hopefully) shorter than the original.
+\end{abstract}
+
+
+\section*{Introduction}
+In regular golf, players try to complete a hole in as few strokes of the club as possible. In code golf, programmers try to complete a coding challenge (also called a ``hole'') in as few \emph{key} strokes as possible. In other words, the challenge is the write the shortest possible computer program that performs some task in an agreed upon language. Holes are usually judged by measuring the length of the source code in bytes. However, certain venues (e.g. \href{https://code.golf/}{\texttt{https://code.golf/}}) instead count the number of characters. If a variable-length character encoding like UTF-8 is used, and non-ASCII-range characters are allowed, it becomes possible to pack more information into the same number of characters by using high-value code points. 
+
+\medskip
+
+Source code generally consists only of ASCII characters, whose values range from \textsf{0} to \textsf{127} (giving 8 bits of information per character). Unicode ordinals on the other hand range all the way from \textsf{0} to \textsf{1,112,063} (giving 20 bits of information per character). Thus, a unicode string has the potential to be over twice as information-dense as an ASCII string. We present a method for losslessly compressing python source code into this denser format while remaining executable.
+
+
+\section*{Methodology}
+We convert an ASCII string into a unicode string by merging pairs of consecutive ASCII chars into a single unicode char. Let \textsf{a} and \textsf{b} represent adjacent ASCII chars. The resulting unicode char's ordinal is given by
+\begin{center}
+    \textsf{c = (a $>>$ 8) $|$ b}
+\end{center}
+effectively setting the high byte to be \textsf{a} and the low byte to be \textsf{b}. The maximum possible value is
+\begin{center}
+    \textsf{(0x7f $>>$ 8) $|$ 0x7f = 0x7f7f = 32639 $\le$ 1,112,063}
+\end{center}
+so we are comfortably within the bounds of unicode. We are effectively using 16 of the available 20 bits. If our original string has an odd number of characters, we pad it with a space. For example, we have the following conversion for the string \texttt{print(42)}. Convincing latex to actually render the resulting characters, which mostly fall in the range of \emph{CJK Unified Ideographs}, is left as an exercise to the reader.
+\begin{table}[h]
+    \centering
+    \begin{tabular}{cccccccccc}
+    \texttt{p}         & \texttt{r}        & \texttt{i}         & \texttt{n}        & \texttt{t}         & \texttt{(}        & \texttt{4}         & \texttt{2}        & \texttt{)}         & {\raisebox{1.5pt}{\tiny\textsf{SPACE}}}        \\
+    \smallvert & \smallvert & \smallvert & \smallvert & \smallvert & \smallvert & \smallvert & \smallvert & \smallvert & \smallvert \\
+    \textsf{0x70}      & \textsf{0x72}     & \textsf{0x69}      & \textsf{0x6e}     & \textsf{0x74}      & \textsf{0x28}     & \textsf{0x34}      & \textsf{0x32}     & \textsf{0x29}      & \textsf{0x20}     \\
+    \multicolumn{2}{c}{\smallvee} & \multicolumn{2}{c}{\smallvee} & \multicolumn{2}{c}{\smallvee} & \multicolumn{2}{c}{\smallvee} & \multicolumn{2}{c}{\smallvee} \\
+    \multicolumn{2}{c}{\textsf{0x7072}}    & \multicolumn{2}{c}{\textsf{0x696e}}    & \multicolumn{2}{c}{\textsf{0x7428}}    & \multicolumn{2}{c}{\textsf{0x3432}}    & \multicolumn{2}{c}{\textsf{0x2920}}    \\
+    \multicolumn{2}{c}{\smallvert} & \multicolumn{2}{c}{\smallvert} & \multicolumn{2}{c}{\smallvert} & \multicolumn{2}{c}{\smallvert} & \multicolumn{2}{c}{\smallvert} \\
+    \multicolumn{2}{c}{\Box}                  & \multicolumn{2}{c}{\Box}                  & \multicolumn{2}{c}{\Box}                  & \multicolumn{2}{c}{\Box}                  & \multicolumn{2}{c}{\Box}                 
+    \end{tabular}
+\end{table}
+
+\medskip
+
+Decompression is straightforward. For each unicode character, split the bytes and convert each back to ASCII. In fact, the decompression algorithm is so simple that it can be written in python using only $\sim50$ characters. Finally, we pass the decompressed result to \texttt{exec()}, which invokes the interpreter.
+
+
+\section*{Results}
+
+The results are quite beautiful. Converting to unicode results in a compression ratio of 2, however we have to include the decoder and the call to \texttt{exec()}, so there is a break-even point below which this method actually makes the code longer. The overhead incurred by decoding is 58 chars, so we break even at 168 chars. Beyond that point, it's all gravy.
+
+\medskip
+
+\setlength{\columnseprule}{0.4pt}
+\renewcommand{\columnseprulecolor}{\color{darkgray}}
+
+\begin{tcolorbox}[boxrule=0.4pt, title=Example 1: Print all palindromic primes under 1000]
+    \begin{multicols}{2}
+    \includegraphics*[width=\linewidth]{figures/palindromic_primes_before.png}
+
+    \columnbreak
+
+    \includegraphics*[width=\linewidth]{figures/palindromic_primes_after.png}
+    \end{multicols}
+\end{tcolorbox}
+
+
+\begin{tcolorbox}[boxrule=0.4pt, title=Example 2: Roman to Arabic Numerals Converter]
+    \begin{multicols}{2}
+        \includegraphics*[width=\linewidth]{figures/roman_before.png}
+
+        \columnbreak
+
+        \includegraphics*[width=\linewidth]{figures/roman_after.png}
+    \end{multicols}
+\end{tcolorbox}
+
+
+\begin{tcolorbox}[boxrule=0.4pt, title=Example 3: Brainf*ck Interpreter]
+    \begin{multicols}{2}
+    \includegraphics*[width=\linewidth]{figures/brainfuck_before.png}
+
+    \columnbreak
+
+    \includegraphics*[width=\linewidth]{figures/brainfuck_after.png}
+    \end{multicols}
+\end{tcolorbox}
+
+
+\section*{Conclusion}
+The results really speak for themselves. Not only is the compressed code shorter, but it is also only a single line! Imagine telling your project manager that you just refactored your 10 KLOC codebase into a single line. You might want to also mention that you just doubled or even tripled the total size on disk, but that's the price we pay for greatness. 
+
+
+\end{document}
